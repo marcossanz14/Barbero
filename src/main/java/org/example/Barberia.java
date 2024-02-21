@@ -10,9 +10,10 @@ import java.util.concurrent.locks.ReentrantLock;
 class Barberia {
     private final Lock lock = new ReentrantLock();
     private final Condition barberoDormido = lock.newCondition();
-    private final Condition clientesEsperando = lock.newCondition();
     private final Queue<Cliente> colaClientes = new LinkedList<>();
     private final Random random = new Random();
+    private boolean barberoOcupado = false;
+
 
     public void llegaCliente(Cliente cliente) {
         lock.lock();
@@ -22,13 +23,12 @@ class Barberia {
                 return;
             }
             // Despertamos al barbero si está dormido
-            if (colaClientes.isEmpty()) {
+            if (colaClientes.isEmpty() && !barberoOcupado) {
                 barberoDormido.signal();
             }
-            // Añadimos el cliente a la cola y lo notificamos
+            // Añadimos el cliente a la cola
             colaClientes.offer(cliente);
             System.out.println("Llega cliente: " + cliente.num);
-            clientesEsperando.signal();
         } finally {
             lock.unlock();
         }
@@ -45,14 +45,16 @@ class Barberia {
                 }
                 // Si hay clientes, el barbero le etiende (le eliminamos de la cola)
                 Cliente cliente = colaClientes.poll();
+                // Marcamos al barbero como ocupado
+                barberoOcupado = true;
                 System.out.println("Atendiendo cliente: "+cliente.num);
                 // Permitimos que lleguen más clientes y simulamos el corte de pelo con el sleep
                 lock.unlock();
                 Thread.sleep(random.nextInt(4000) + 3000);
-                // Una vez finaliza de cortar el pelo, vuelve a hacerse el lock y se notifica al siguiente cliente
+                // Una vez finaliza de cortar el pelo, volvemos a poner al barbero como no ocupado
                 lock.lock();
+                barberoOcupado = false;
                 System.out.println("Cliente: "+cliente.num +" atendido");
-                clientesEsperando.signal();
             }
         } finally {
             lock.unlock();
